@@ -6,8 +6,8 @@ print(">>> Iniciando app.py")  # Teste de vida
 
 app = Flask(__name__)
 
-LOCAWEB_TOKEN = "SEU_TOKEN_DA_LOCAWEB"
-EMAIL_FROM = "seuemail@seudominio.com.br"
+LOCAWEB_TOKEN = "3NqLaUxVGAL5pBzsdY5esprtWWzVxBgqs8QH2iTxBtEr"
+EMAIL_FROM = "luna@fausp.edu.br"
 LEADS_REGISTRADOS = "processed_leads.txt"
 
 def lead_ja_processado(lead_id):
@@ -36,37 +36,33 @@ def enviar_email_locaweb(nome, email):
     response = requests.post(url, headers=headers, json=data)
     return response.status_code, response.text
 
-@app.route("/kommo-webhook", methods=["POST"])
+@app.route('/')
+def home():
+    return 'API Kommo-Locaweb online!'
+
+@app.route('/kommo-webhook', methods=["POST"])
 def receber_webhook():
-    if request.is_json:
-     data = request.form.to_dict(flat=False)
+    if not request.is_json:
+        return jsonify({"error": "Conteúdo não é JSON"}), 400
 
+    try:
+        data = request.get_json()
 
-    lead = data.get('leads', [{}])[0]
-    lead_id = lead.get('id')
-    nome = lead.get('name', 'Contato')
-    email = None
+        lead = data.get('leads', [{}])[0]
+        lead_id = lead.get('id')
+        nome = lead.get('name', 'Contato')
+        email = None
 
-    if 'custom_fields' in lead:
-        for field in lead['custom_fields']:
-            if 'email' in field.get('name', '').lower():
-                email = field.get('values', [{}])[0].get('value')
-                break
+        if 'custom_fields' in lead:
+            for field in lead['custom_fields']:
+                if 'email' in field.get('name', '').lower():
+                    email = field.get('values', [{}])[0].get('value')
 
-    if not email or not lead_id:
-        return jsonify({"error": "Lead sem e-mail ou ID"}), 400
+        if nome and email:
+            status, resposta = enviar_email_locaweb(nome, email)
+            return {'status': 'Webhook recebido com sucesso'}, 200
+        else:
+            return jsonify({"error": "Dados incompletos"}), 400
 
-    if lead_ja_processado(lead_id):
-        return jsonify({"message": "Lead já processado"}), 200
-
-    status, resposta = enviar_email_locaweb(nome, email)
-
-    if status in [200, 202]:
-        registrar_lead(lead_id)
-        return jsonify({"message": "E-mail enviado com sucesso"}), 200
-    else:
-        return jsonify({"error": "Erro ao enviar e-mail", "detalhes": resposta}), 500
-
-if __name__ == "__main__":
-    print(">>> Rodando servidor Flask...")
-    app.run(port=5000, debug=True)
+    except Exception as e:
+        return jsonify({"error": "Erro no processamento", "mensagem": str(e)}), 500

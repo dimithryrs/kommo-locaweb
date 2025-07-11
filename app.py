@@ -6,8 +6,11 @@ print(">>> Iniciando app.py")  # Teste de vida
 
 app = Flask(__name__)
 
-LOCAWEB_TOKEN = "3NqLaUxVGAL5pBzsdY5esprtWWzVxBgqs8QH2iTxBtEr"
-EMAIL_FROM = "luna@fausp.edu.br"
+# Carrega variáveis de ambiente (usadas no Render.com)
+LOCAWEB_TOKEN = os.getenv("LOCAWEB_TOKEN")
+EMAIL_FROM = os.getenv("EMAIL_FROM")
+
+# Arquivo local para registrar os leads já processados
 LEADS_REGISTRADOS = "processed_leads.txt"
 
 def lead_ja_processado(lead_id):
@@ -21,7 +24,7 @@ def registrar_lead(lead_id):
         f.write(f"{lead_id}\n")
 
 def enviar_email_locaweb(nome, email):
-    url = "https://emailmarketing.api.locaweb.com.br/v1"
+    url = "https://emailmarketing.api.locaweb.com.br/v1/messages/send"
     headers = {
         "Authorization": f"Token {LOCAWEB_TOKEN}",
         "Content-Type": "application/json"
@@ -58,11 +61,23 @@ def receber_webhook():
                 if 'email' in field.get('name', '').lower():
                     email = field.get('values', [{}])[0].get('value')
 
-        if nome and email:
-            status, resposta = enviar_email_locaweb(nome, email)
-            return {'status': 'Webhook recebido com sucesso'}, 200
+        if not lead_id or not email:
+            return jsonify({"error": "Lead sem ID ou email"}), 400
+
+        if lead_ja_processado(lead_id):
+            return jsonify({"message": "Lead já processado"}), 200
+
+        status, resposta = enviar_email_locaweb(nome, email)
+
+        if status in [200, 202]:
+            registrar_lead(lead_id)
+            return jsonify({"message": "E-mail enviado com sucesso"}), 200
         else:
-            return jsonify({"error": "Dados incompletos"}), 400
+            return jsonify({"error": "Erro ao enviar e-mail", "detalhes": resposta}), 500
 
     except Exception as e:
         return jsonify({"error": "Erro no processamento", "mensagem": str(e)}), 500
+
+if __name__ == "__main__":
+    print(">>> Rodando servidor Flask...")
+    app.run(port=5000, debug=True)

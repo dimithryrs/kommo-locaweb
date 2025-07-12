@@ -50,16 +50,23 @@ def receber_webhook():
 
     try:
         data = request.get_json()
+        print(">>> Dados recebidos:", data)
 
-        lead = data.get('leads', [{}])[0]
-        lead_id = lead.get('id')
-        nome = lead.get('name', 'Contato')
-        email = None
+        leads = data.get('leads', [])
+if not leads:
+    return jsonify({"error": "Nenhum lead fornecido"}), 400
+
+lead = leads[0]
+print(">>> Lead recebido:", lead)
+
+lead_id = lead.get('id')
+nome = lead.get('name', 'Contato')
 
         if 'custom_fields' in lead:
             for field in lead['custom_fields']:
                 if 'email' in field.get('name', '').lower():
                     email = field.get('values', [{}])[0].get('value')
+                    print(">>> Email extraído:", email)
 
         if not lead_id or not email:
             return jsonify({"error": "Lead sem ID ou email"}), 400

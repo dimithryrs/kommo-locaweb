@@ -15,81 +15,80 @@ EMAIL_FROM = os.getenv("EMAIL_FROM")
 LEADS_REGISTRADOS = "processed_leads.txt"
 
 def lead_ja_processado(lead_id):
-	if not os.path.exists(LEADS_REGISTRADOS):
-		return False
-	with open(LEADS_REGISTRADOS, 'r') as f:
-		return str(lead_id) in f.read()
+    if not os.path.exists(LEADS_REGISTRADOS):
+        return False
+    with open(LEADS_REGISTRADOS, 'r') as f:
+        return str(lead_id) in f.read()
 
 def registrar_lead(lead_id):
-	with open(LEADS_REGISTRADOS, 'a') as f:
-		f.write(f"{lead_id}\n")
+    with open(LEADS_REGISTRADOS, 'a') as f:
+        f.write(f"{lead_id}\n")
 
 def enviar_email_locaweb(nome, email):
-	url = "https://emailmarketing.locaweb.com.br/api"
-	headers = {
-		"Authorization": f"Token {LOCAWEB_TOKEN}",
-		"Content-Type": "application/json"
-	}
-	data = {
-		"from": EMAIL_FROM,
-		"to": email,
-		"subject": "Bem-vindo!",
-		"html": f"<p>Olá {nome}, obrigado por se conectar conosco!</p>"
-	}
+    url = "https://emailmarketing.locaweb.com.br/api"
+    headers = {
+        "Authorization": f"Token {LOCAWEB_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "from": EMAIL_FROM,
+        "to": email,
+        "subject": "Bem-vindo!",
+        "html": f"<p>Olá {nome}, obrigado por se conectar conosco!</p>"
+    }
 
-	response = requests.post(url, headers=headers, json=data)
-	return response.status_code, response.text
+    response = requests.post(url, headers=headers, json=data)
+    return response.status_code, response.text
+
+def normalizar(texto):
+    return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8').lower()
 
 @app.route('/')
 def home():
-	return 'API Kommo-Locaweb online!'
-
-@app.route('/kommo-webhook', methods=["POST"])
-
-def normalizar(texto):
-	return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8').lower()
+    return 'API Kommo-Locaweb online!'
 
 @app.route('/kommo-webhook', methods=["POST"])
 def receber_webhook():
-	if not request.is_json:
-		return jsonify({"error": "Conteúdo não é JSON"}), 400
+    if not request.is_json:
+        return jsonify({"error": "Conteúdo não é JSON"}), 400
 
-	try:
-		data = request.get_json()
-		print(">>> Dados recebidos:", data)
+    try:
+        data = request.get_json()
+        print(">>> Dados recebidos:", data)
 
-		lead = data.get('leads', [{}])[0]
-		lead_id = lead.get('id')
-		nome = lead.get('name', 'Contato')
-		email = None
+        lead = data.get('leads', [{}])[0]
+        lead_id = lead.get('id')
+        nome = lead.get('name', 'Contato')
+        email = None
 
-		if 'custom_fields' in lead:
-			for field in lead['custom_fields']:
-				nome_campo = normalizar(field.get('name', ''))
-				if 'email' in nome_campo:
-					email = field.get('values', [{}])[0].get('value')
+        if 'custom_fields' in lead:
+            for field in lead['custom_fields']:
+                nome_campo = normalizar(field.get('name', ''))
+                if 'email' in nome_campo:
+                    valores = field.get('values', [])
+                    if valores and isinstance(valores, list):
+                        email = valores[0].get('value')
 
-		print(">>> Lead ID:", lead_id)
-		print(">>> Email extraído:", email)
+        print(">>> Lead ID:", lead_id)
+        print(">>> Email extraído:", email)
 
-		if not lead_id or not email:
-			return jsonify({"error": "Lead sem ID ou email"}), 400
+        if not lead_id or not email:
+            return jsonify({"error": "Lead sem ID ou email"}), 400
 
-		if lead_ja_processado(lead_id):
-			return jsonify({"message": "Lead já processado"}), 200
+        if lead_ja_processado(lead_id):
+            return jsonify({"message": "Lead já processado"}), 200
 
-		status, resposta = enviar_email_locaweb(nome, email)
+        status, resposta = enviar_email_locaweb(nome, email)
 
-		if status in [200, 202]:
-			registrar_lead(lead_id)
-			return jsonify({"message": "E-mail enviado com sucesso"}), 200
-		else:
-			return jsonify({"error": "Erro ao enviar e-mail", "detalhes": resposta}), 500
+        if status in [200, 202]:
+            registrar_lead(lead_id)
+            return jsonify({"message": "E-mail enviado com sucesso"}), 200
+        else:
+            return jsonify({"error": "Erro ao enviar e-mail", "detalhes": resposta}), 500
 
-	except Exception as e:
-		return jsonify({"error": "Erro no processamento", "mensagem": str(e)}), 500
-
+    except Exception as e:
+        return jsonify({"error": "Erro no processamento", "mensagem": str(e)}), 500
 
 if __name__ == "__main__":
-	print(">>> Rodando servidor Flask...")
-	app.run(port=5000, debug=True)
+    print(">>> Rodando servidor Flask...")
+    app.run(port=5000, debug=True)

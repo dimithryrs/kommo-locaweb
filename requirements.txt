@@ -1,8 +1,3 @@
 flask
 requests
-type: web
-name: kommo-locaweb-api
-env: python
-plan: free
-buildCommand: "pip install -r requirements.txt"
-startCommand: "python app.py"
+gunicorn

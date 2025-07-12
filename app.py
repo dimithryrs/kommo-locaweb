@@ -24,9 +24,9 @@ def registrar_lead(lead_id):
         f.write(f"{lead_id}\n")
 
 def enviar_email_locaweb(nome, email):
-    url = "https://emailmarketing.locaweb.com.br/api"
+    url = "https://api.smtplw.com.br/v1/messages"
     headers = {
-        "Authorization": f"Token {LOCAWEB_TOKEN}",
+        "x-auth-token": LOCAWEB_TOKEN,
         "Content-Type": "application/json"
     }
     data = {

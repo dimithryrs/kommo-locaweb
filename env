@@ -3,3 +3,8 @@ EMAIL_FROM=luna@fausp.edu.br
 LOCAWEB_ACCOUNT_ID=199277
 LOCAWEB_EMAIL=luna@fausp.edu.br
 LOCAWEB_SENHA=E010203!
+
+# Configurações opcionais de segurança
+KOMMO_WEBHOOK_SECRET=
+FLASK_ENV=production
+PORT=5000

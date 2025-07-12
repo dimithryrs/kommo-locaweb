@@ -2,15 +2,17 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import unicodedata
-import re
 
 print(">>> Iniciando app.py")
 
 app = Flask(__name__)
 
+# Carrega variáveis de ambiente (Render.com ou .env local)
 LOCAWEB_TOKEN = os.getenv("LOCAWEB_TOKEN")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "luna@fausp.edu.br")  # Valor padrão caso não esteja definido
+EMAIL_FROM = os.getenv("EMAIL_FROM")
+LOCAWEB_ACCOUNT_ID = os.getenv("LOCAWEB_ACCOUNT_ID")
 
+# Arquivo local para registrar os leads já processados
 LEADS_REGISTRADOS = "processed_leads.txt"
 
 def lead_ja_processado(lead_id):
@@ -24,54 +26,26 @@ def registrar_lead(lead_id):
         f.write(f"{lead_id}\n")
 
 def enviar_email_locaweb(nome, email):
-    account_id = os.getenv("LOCAWEB_ACCOUNT_ID")  # NOVO: adicionado para pegar ID da conta
-    url = f"https://emailmarketing.locaweb.com.br/api/v1/accounts/{199277}/messages"
+    url = f"https://api.emailmarketing.locaweb.com.br/accounts/{LOCAWEB_ACCOUNT_ID}/messages"
     headers = {
-        "Authorization": f"Bearer {LOCAWEB_TOKEN}",
+        "Authorization": f"Token {LOCAWEB_TOKEN}",
         "Content-Type": "application/json"
     }
     data = {
-        "from": EMAIL_FROM,
-        "to": [email],
-        "subject": "Bem-vindo!",
-        "html": f"<p>Olá {nome}, obrigado por se conectar conosco!</p>"
+        "message": {
+            "subject": "Bem-vindo!",
+            "from": EMAIL_FROM,
+            "from_name": "Equipe FAUSP",
+            "html": f"<p>Olá {nome}, obrigado por se conectar conosco!</p>",
+            "to": [email]
+        }
     }
 
     response = requests.post(url, headers=headers, json=data)
     return response.status_code, response.text
 
 def normalizar(texto):
-    """Normaliza texto removendo acentos e convertendo para minúsculas"""
-    if not texto:
-        return ""
     return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8').lower()
-
-def extrair_email_do_lead(lead):
-    """Extrai email do lead com múltiplas estratégias"""
-    email = None
-    
-    # Estratégia 1: Buscar em custom_fields
-    if 'custom_fields' in lead:
-        for field in lead['custom_fields']:
-            nome_campo = normalizar(field.get('name', ''))
-            print(f">>> Analisando campo: '{field.get('name')}' -> normalizado: '{nome_campo}'")
-            
-            # Buscar por variações de email
-            if any(palavra in nome_campo for palavra in ['email', 'e-mail', 'e_mail', 'mail']):
-                valores = field.get('values', [])
-                if valores and isinstance(valores, list) and len(valores) > 0:
-                    email_value = valores[0].get('value')
-                    if email_value and '@' in email_value:  # Validação básica de email
-                        email = email_value
-                        print(f">>> Email encontrado em custom_fields: {email}")
-                        break
-    
-    # Estratégia 2: Buscar diretamente no lead (caso o Kommo envie assim)
-    if not email and 'email' in lead:
-        email = lead['email']
-        print(f">>> Email encontrado diretamente no lead: {email}")
-    
-    return email
 
 @app.route('/')
 def home():
@@ -86,63 +60,39 @@ def receber_webhook():
         data = request.get_json()
         print(">>> Dados recebidos:", data)
 
-        # Verificar se há leads no payload
-        if 'leads' not in data or not data['leads']:
-            return jsonify({"error": "Nenhum lead encontrado no payload"}), 400
-
-        lead = data['leads'][0]  # Pegar o primeiro lead
+        lead = data.get('leads', [{}])[0]
         lead_id = lead.get('id')
         nome = lead.get('name', 'Contato')
-        
-        # Extrair email usando função melhorada
-        email = extrair_email_do_lead(lead)
+        email = None
 
-        print(f">>> Lead ID: {lead_id} (tipo: {type(lead_id)})")
-        print(f">>> Nome: {nome}")
-        print(f">>> Email extraído: {email}")
-        print(f">>> EMAIL_FROM configurado: {EMAIL_FROM}")
-        print(f">>> LOCAWEB_TOKEN configurado: {'Sim' if LOCAWEB_TOKEN else 'Não'}")
+        if 'custom_fields' in lead:
+            for field in lead['custom_fields']:
+                nome_campo = normalizar(field.get('name', ''))
+                if 'email' in nome_campo:
+                    valores = field.get('values', [])
+                    if valores and isinstance(valores, list):
+                        email = valores[0].get('value')
 
-        # Validações
-        if not lead_id:
-            return jsonify({"error": "Lead sem ID"}), 400
-            
-        if not email:
-            return jsonify({"error": "Email não encontrado no lead", "lead_data": lead}), 400
-            
-        if not LOCAWEB_TOKEN:
-            return jsonify({"error": "Token da LocaWeb não configurado"}), 500
+        print(">>> Lead ID:", lead_id)
+        print(">>> Email extraído:", email)
 
-        # Verificar se já foi processado
+        if not lead_id or not email:
+            return jsonify({"error": "Lead sem ID ou email"}), 400
+
         if lead_ja_processado(lead_id):
             return jsonify({"message": "Lead já processado"}), 200
 
-        # Enviar email
         status, resposta = enviar_email_locaweb(nome, email)
-        print(f">>> Status do envio: {status}")
-        print(f">>> Resposta da LocaWeb: {resposta}")
 
         if status in [200, 202]:
             registrar_lead(lead_id)
-            return jsonify({
-                "message": "E-mail enviado com sucesso",
-                "lead_id": lead_id,
-                "email": email,
-                "status": status
-            }), 200
+            return jsonify({"message": "E-mail enviado com sucesso"}), 200
         else:
-            return jsonify({
-                "error": "Erro ao enviar e-mail", 
-                "detalhes": resposta,
-                "status": status
-            }), 500
+            return jsonify({"error": "Erro ao enviar e-mail", "detalhes": resposta, "status": status}), 500
 
     except Exception as e:
-        print(f">>> Erro no processamento: {str(e)}")
         return jsonify({"error": "Erro no processamento", "mensagem": str(e)}), 500
 
 if __name__ == "__main__":
     print(">>> Rodando servidor Flask...")
-    print(f">>> EMAIL_FROM: {EMAIL_FROM}")
-    print(f">>> LOCAWEB_TOKEN: {'Configurado' if LOCAWEB_TOKEN else 'NÃO CONFIGURADO'}")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(port=5000, debug=True)

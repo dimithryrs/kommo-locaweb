@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 import requests
 import os
 
-print(">>> Iniciando app.py")  # Teste de vida
+print(">>> Iniciando app.py")  
 
 app = Flask(__name__)
 

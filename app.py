@@ -7,11 +7,9 @@ print(">>> Iniciando app.py")
 
 app = Flask(__name__)
 
-# Carrega variáveis de ambiente (usadas no Render.com)
 LOCAWEB_TOKEN = os.getenv("LOCAWEB_TOKEN")
 EMAIL_FROM = os.getenv("EMAIL_FROM")
 
-# Arquivo local para registrar os leads já processados
 LEADS_REGISTRADOS = "processed_leads.txt"
 
 def lead_ja_processado(lead_id):
@@ -36,7 +34,6 @@ def enviar_email_locaweb(nome, email):
         "subject": "Bem-vindo!",
         "html": f"<p>Olá {nome}, obrigado por se conectar conosco!</p>"
     }
-
     response = requests.post(url, headers=headers, json=data)
     return response.status_code, response.text
 
@@ -69,8 +66,8 @@ def receber_webhook():
                     if valores and isinstance(valores, list):
                         email = valores[0].get('value')
 
-        print(">>> Lead ID:", lead_id)
-        print(">>> Email extraído:", email)
+        print(f">>> Campo lead_id type: {type(lead_id)}, valor: {lead_id}")
+        print(f">>> Campo email type: {type(email)}, valor: {email}")
 
         if not lead_id or not email:
             return jsonify({"error": "Lead sem ID ou email"}), 400

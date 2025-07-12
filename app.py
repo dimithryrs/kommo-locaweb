@@ -24,19 +24,24 @@ def registrar_lead(lead_id):
         f.write(f"{lead_id}\n")
 
 def enviar_email_locaweb(nome, email):
-    account_id = os.getenv("LOCAWEB_ACCOUNT_ID")  # NOVO: adicionado para pegar ID da conta
-    url = f"https://emailmarketing.locaweb.com.br/api/v1/accounts/199277/messages"
+    url = "https://api.smtplw.com.br/v1/messages"
     headers = {
-        "Authorization": f"Bearer {LOCAWEB_TOKEN}",
+        "x-auth-token": LOCAWEB_TOKEN,
         "Content-Type": "application/json"
     }
     data = {
         "from": EMAIL_FROM,
-        "to": [email],
+        "to": email,
         "subject": "Bem-vindo!",
-        "html": f"<p>Olá {nome}, obrigado por se conectar conosco!</p>"
+        "body": f"<p>Olá {nome}, obrigado por se conectar conosco!</p>",
+        "headers": {
+            "Content-Type": "text/html"
+        }
     }
-
+    
+    print(f">>> Enviando email para: {email}")
+    print(f">>> Dados do email: {data}")
+    
     response = requests.post(url, headers=headers, json=data)
     return response.status_code, response.text
 

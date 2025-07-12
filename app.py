@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 import requests
 import os
 
-print(">>> Iniciando app.py")  
+print(">>> Iniciando app.py")
 
 app = Flask(__name__)
 
@@ -53,20 +53,22 @@ def receber_webhook():
         print(">>> Dados recebidos:", data)
 
         leads = data.get('leads', [])
-if not leads:
-    return jsonify({"error": "Nenhum lead fornecido"}), 400
+        if not leads:
+            return jsonify({"error": "Nenhum lead fornecido"}), 400
 
-lead = leads[0]
-print(">>> Lead recebido:", lead)
+        lead = leads[0]
+        print(">>> Lead recebido:", lead)
 
-lead_id = lead.get('id')
-nome = lead.get('name', 'Contato')
+        lead_id = lead.get('id')
+        nome = lead.get('name', 'Contato')
+        email = None
 
         if 'custom_fields' in lead:
             for field in lead['custom_fields']:
                 if 'email' in field.get('name', '').lower():
                     email = field.get('values', [{}])[0].get('value')
-                    print(">>> Email extraído:", email)
+
+        print(">>> Email extraído:", email)
 
         if not lead_id or not email:
             return jsonify({"error": "Lead sem ID ou email"}), 400
@@ -83,6 +85,7 @@ nome = lead.get('name', 'Contato')
             return jsonify({"error": "Erro ao enviar e-mail", "detalhes": resposta}), 500
 
     except Exception as e:
+        print(">>> Erro no processamento:", str(e))
         return jsonify({"error": "Erro no processamento", "mensagem": str(e)}), 500
 
 if __name__ == "__main__":

@@ -44,6 +44,12 @@ def home():
     return 'API Kommo-Locaweb online!'
 
 @app.route('/kommo-webhook', methods=["POST"])
+import unicodedata
+
+def normalizar(texto):
+    return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8').lower()
+
+@app.route('/kommo-webhook', methods=["POST"])
 def receber_webhook():
     if not request.is_json:
         return jsonify({"error": "Conteúdo não é JSON"}), 400
@@ -52,27 +58,19 @@ def receber_webhook():
         data = request.get_json()
         print(">>> Dados recebidos:", data)
 
-        leads = data.get('leads', [])
-        if not leads:
-            return jsonify({"error": "Nenhum lead fornecido"}), 400
-
-        lead = leads[0]
-        print(">>> Lead recebido:", lead)
-
+        lead = data.get('leads', [{}])[0]
         lead_id = lead.get('id')
         nome = lead.get('name', 'Contato')
         email = None
 
-        print(">>> Lead ID:", lead_id)
-        print(">>> Nome:", nome)
-        print(">>> Custom Fields:", lead.get('custom_fields', []))
-
         if 'custom_fields' in lead:
             for field in lead['custom_fields']:
-                if 'email' in field.get('name', '').lower():
+                nome_campo = normalizar(field.get('name', ''))
+                if 'email' in nome_campo:
                     email = field.get('values', [{}])[0].get('value')
 
-        print(">>> Email:", email)
+        print(">>> Lead ID:", lead_id)
+        print(">>> Email extraído:", email)
 
         if not lead_id or not email:
             return jsonify({"error": "Lead sem ID ou email"}), 400
@@ -89,8 +87,8 @@ def receber_webhook():
             return jsonify({"error": "Erro ao enviar e-mail", "detalhes": resposta}), 500
 
     except Exception as e:
-        print(">>> Erro no processamento:", str(e))
         return jsonify({"error": "Erro no processamento", "mensagem": str(e)}), 500
+
 
 if __name__ == "__main__":
     print(">>> Rodando servidor Flask...")

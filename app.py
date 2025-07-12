@@ -25,7 +25,7 @@ def registrar_lead(lead_id):
 
 def enviar_email_locaweb(nome, email):
     account_id = os.getenv("LOCAWEB_ACCOUNT_ID")  # NOVO: adicionado para pegar ID da conta
-    url = f"https://emailmarketing.locaweb.com.br/api/v1/accounts/{199277}/messages"
+    url = f"https://emailmarketing.locaweb.com.br/api/v1/accounts/199277/messages"
     headers = {
         "Authorization": f"Bearer {LOCAWEB_TOKEN}",
         "Content-Type": "application/json"

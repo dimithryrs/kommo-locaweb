@@ -22,7 +22,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Configurações da API
-LOCAWEB_BASE_URL = "https://api.emailmarketing.locaweb.com.br/v1"
+LOCAWEB_BASE_URL = "https://api.smtplw.com.br/v1"
 LOCAWEB_TOKEN = os.getenv("LOCAWEB_TOKEN")
 LOCAWEB_ACCOUNT_ID = os.getenv("LOCAWEB_ACCOUNT_ID")
 EMAIL_FROM = os.getenv("EMAIL_FROM")
@@ -81,7 +81,7 @@ def enviar_email_marketing(destinatario, lead_data=None):
     Envia email através da API do Email Marketing Locaweb
     """
     try:
-        url = f"{LOCAWEB_BASE_URL}/accounts/{LOCAWEB_ACCOUNT_ID}/messages"
+        url = f"{LOCAWEB_BASE_URL}/messages"
         
         headers = {
             "Content-Type": "application/json",
@@ -136,7 +136,7 @@ def enviar_email_marketing(destinatario, lead_data=None):
         logger.error(f"Erro inesperado ao enviar email: {str(e)}")
         return {"success": False, "error": f"Erro inesperado: {str(e)}"}
 
-@app.route("/", methods=["GET"])
+@app.route("/", methods=["POST"])
 def health_check():
     """
     Endpoint de verificação de saúde da aplicação
